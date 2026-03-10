@@ -65,7 +65,24 @@ mvn spotless:apply
 mvn spotless:check
 ```
 
-### Configuración de Aplicación
+### Despliegue en Producción (Azure)
+
+#### Configuración Automática
+El sistema está configurado para despliegue automático en Azure Web Apps mediante GitHub Actions:
+
+**Backend:**
+1. **Web App**: Live-Board-Backend
+2. **URL Backend**: https://live-board-backend-hfhff6b0f6cvf3h8.westus3-01.azurewebsites.net
+3. **Implementación**: Automática desde rama main del repositorio GitHub
+4. **Runtime**: Java 21 SE en Linux
+
+**Frontend:**
+1. **Web App**: Live-Board-Frontend
+2. **URL Frontend**: https://live-board-fcb6a0eedtdcgfh6.westus3-01.azurewebsites.net
+3. **Implementación**: Despliegue estático de React en Azure Web Apps
+4. **Runtime**: Node.js sobre Linux
+
+#### Configuración de Aplicación
 El sistema utiliza configuración externa mediante `application.properties`:
 
 ```properties
@@ -80,12 +97,24 @@ logging.level.arsw.java.Live_Board=INFO
 
 # Configuración de serialización JSON
 spring.jackson.serialization.indent-output=true
+
+# Puerto dinámico para Azure
+server.port=8080
 ```
 
 ### Endpoints Disponibles
+
+#### Entorno de Desarrollo
 - **API REST**: http://localhost:8080/api/
 - **WebSocket**: ws://localhost:8080/ws
 - **Documentación Swagger**: http://localhost:8080/swagger-ui.html
+- **Frontend Local**: http://localhost:5173
+
+#### Entorno de Producción (Azure)
+- **Backend API**: https://live-board-backend-hfhff6b0f6cvf3h8.westus3-01.azurewebsites.net/api/
+- **Backend WebSocket**: wss://live-board-backend-hfhff6b0f6cvf3h8.westus3-01.azurewebsites.net/ws
+- **Backend Swagger**: https://live-board-backend-hfhff6b0f6cvf3h8.westus3-01.azurewebsites.net/swagger-ui.html
+- **Frontend Producción**: https://live-board-fcb6a0eedtdcgfh6.westus3-01.azurewebsites.net/
 
 ## Arquitectura de Testing
 
@@ -105,14 +134,38 @@ El proyecto implementa una estrategia completa de testing que incluye:
 
 ### Configuración CORS
 El sistema incluye configuración CORS específica para comunicación con frontend en dominios diferentes:
-- Orígenes permitidos configurados para desarrollo local
-- Métodos HTTP restringidos a operaciones necesarias
-- Headers específicos para seguridad
+- **Orígenes permitidos**:
+  - Desarrollo local: http://localhost:5173 (React)
+  - Pruebas locales: http://localhost:8080 (backend directo)
+  - Producción: https://live-board-fcb6a0eedtdcgfh6.westus3-01.azurewebsites.net
+- **Métodos HTTP**: GET, POST, PUT, DELETE, OPTIONS
+- **Headers**: Permitidos todos los headers necesarios
+
+### Configuración Azure
+Para producción en Azure Web Apps:
+- **Runtime**: Java 21 SE sobre Linux
+- **Plan**: Free (F1) escalable según demanda
+- **Implementación**: Automática desde GitHub
+- **Dominio**: live-board-backend-hfhff6b0f6cvf3h8.westus3-01.azurewebsites.net
 
 ### Monitoreo y Logging
-- Sistema de logging estructurado con niveles apropiados
+- Sistema de logging estructurado con niveles apropiados (INFO/WARN/ERROR)
 - Logs de conexión y desconexión WebSocket
 - Registro de operaciones críticas del tablero
+- Logs de implementación disponibles en Azure Portal
+
+### Verificación de Funcionamiento
+Para verificar que el sistema funciona correctamente en producción:
+
+#### Backend
+1. **API REST**: https://live-board-backend-hfhff6b0f6cvf3h8.westus3-01.azurewebsites.net/api/board
+2. **Documentación Swagger**: https://live-board-backend-hfhff6b0f6cvf3h8.westus3-01.azurewebsites.net/swagger-ui.html
+3. **Logs**: Azure Portal → Web App → Registros
+
+#### Frontend
+1. **Aplicación completa**: https://live-board-fcb6a0eedtdcgfh6.westus3-01.azurewebsites.net/
+2. **Conexión WebSocket**: Verificar comunicación en tiempo real entre múltiples usuarios
+3. **Funcionalidades**: Dibujado simultáneo, colores únicos, borrado global
 
 ---
 
