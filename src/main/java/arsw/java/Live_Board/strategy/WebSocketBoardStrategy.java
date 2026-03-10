@@ -28,16 +28,18 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
     @Autowired
     private ObjectMapper objectMapper;
 
-    // Almacenar sesiones WebSocket activas por userId
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
     @Override
     public void sendStroke(StrokeDto stroke) {
         try {
-            // Agregar trazo al servicio
             boardService.addStroke(stroke);
             
-            // Enviar a todos los clientes conectados
+            if (sessions.isEmpty()) {
+                logger.warn("No active WebSocket sessions for stroke broadcast");
+                return;
+            }
+            
             broadcastMessage("stroke", stroke);
             
         } catch (Exception e) {
@@ -49,10 +51,13 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
     @Override
     public void sendClear() {
         try {
-            // Limpiar tablero en el servicio
             boardService.clear();
             
-            // Enviar a todos los clientes conectados
+            if (sessions.isEmpty()) {
+                logger.warn("No active WebSocket sessions for clear broadcast");
+                return;
+            }
+            
             broadcastMessage("clear", null);
             
         } catch (Exception e) {
@@ -66,10 +71,11 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
         try {
             Map<String, Object> response = boardService.updateUserActivity(userId);
             
-            // Enviar respuesta solo al usuario específico
             WebSocketSession session = sessions.get(userId);
             if (session != null && session.isOpen()) {
                 sendMessage(session, "heartbeat", response);
+            } else {
+                logger.debug("No active WebSocket session found for user: {}", userId);
             }
             
             return response;
@@ -82,8 +88,6 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
 
     @Override
     public Object getBoard() {
-        // Para WebSockets, el tablero se obtiene a través de mensajes específicos
-        // Este método podría no usarse directamente en modo WebSocket
         return boardService.getBoard();
     }
 
@@ -96,31 +100,23 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
     public Map<String, Object> getChangesSince(Long since) {
         Map<String, Object> changes = boardService.getChangesSince(since);
         
-        // Enviar cambios a todos los clientes conectados
-        broadcastMessage("changes", changes);
+        if (!sessions.isEmpty()) {
+            broadcastMessage("changes", changes);
+        }
         
         return changes;
     }
 
-    /**
-     * Registra una nueva sesión WebSocket.
-     */
     public void addSession(String userId, WebSocketSession session) {
         sessions.put(userId, session);
         logger.info("WebSocket session added for user: {}", userId);
     }
 
-    /**
-     * Remueve una sesión WebSocket.
-     */
     public void removeSession(String userId) {
         sessions.remove(userId);
         logger.info("WebSocket session removed for user: {}", userId);
     }
 
-    /**
-     * Envía un mensaje a todos los clientes conectados.
-     */
     private void broadcastMessage(String type, Object data) {
         Map<String, Object> message = Map.of("type", type, "data", data);
         
@@ -133,13 +129,10 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
             } catch (Exception e) {
                 logger.warn("Failed to send message to session", e);
             }
-            return true; // Remover sesión cerrada o con error
+            return true;
         });
     }
 
-    /**
-     * Envía un mensaje a una sesión específica.
-     */
     private void sendMessage(WebSocketSession session, String type, Object data) {
         try {
             Map<String, Object> message = Map.of("type", type, "data", data);

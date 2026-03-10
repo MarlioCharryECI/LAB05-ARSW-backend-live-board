@@ -16,7 +16,7 @@ public class BoardService {
     private static final class Config {
         static final int RGB_MAX = 0xFFFFFF;
         static final int MIN_STROKE_POINTS = 1;
-        static final long USER_TIMEOUT_MS = 300000; // 5 minutos
+        static final long USER_TIMEOUT_MS = 300000;
 
         static final String[] COLOR_PALETTE = {
             "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0",
@@ -246,7 +246,6 @@ public class BoardService {
      * @return true si fue agregado después
      */
     private boolean strokeAddedAfter(StrokeDto stroke, Long timestamp) {
-        // Implementación simplificada: se asume que todos los trazos son "nuevos"
         return true;
     }
 }
