@@ -17,9 +17,6 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 
 import java.util.Map;
 
-/**
- * Configuración WebSocket para comunicación en tiempo real.
- */
 @Configuration
 @EnableWebSocket
 public class WebSocketConfig implements WebSocketConfigurer {
@@ -29,62 +26,40 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Bean
     public WebSocketBoardStrategy webSocketBoardStrategy() {
-        logger.info("🔥 CREATING WEBSOCKET BOARD STRATEGY BEAN");
         return new WebSocketBoardStrategy();
     }
 
     @Autowired
     public WebSocketConfig(WebSocketBoardStrategy webSocketStrategy) {
-        logger.info("🔥 WEBSOCKET CONFIG CONSTRUCTOR CALLED");
-        logger.info("🔥 STRATEGY INJECTED: {}", webSocketStrategy.getClass().getSimpleName());
         this.webSocketStrategy = webSocketStrategy;
-        logger.info("🔥 WEBSOCKET CONFIG INITIALIZED");
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        logger.info("🔥 REGISTERING WEBSOCKET HANDLER at /ws");
-        BoardWebSocketHandler handler = new BoardWebSocketHandler(webSocketStrategy);
-        logger.info("🔥 HANDLER CREATED: {}", handler.getClass().getSimpleName());
-        
-        // Registrar el handler con múltiples configuraciones para asegurar que funcione
-        registry.addHandler(handler, "/ws")
-                .setAllowedOrigins("*")
-                .withSockJS();
-        
-        registry.addHandler(handler, "/ws")
+        registry.addHandler(new BoardWebSocketHandler(webSocketStrategy), "/ws")
                 .setAllowedOrigins("*");
-        
-        logger.info("🔥 WEBSOCKET HANDLER REGISTERED SUCCESSFULLY");
     }
 
-    /**
-     * Handler WebSocket para manejar conexiones de clientes del tablero.
-     */
     public static class BoardWebSocketHandler extends TextWebSocketHandler {
         
         private static final Logger logger = LoggerFactory.getLogger(BoardWebSocketHandler.class);
         private final WebSocketBoardStrategy webSocketStrategy;
+        private final ObjectMapper objectMapper;
 
         public BoardWebSocketHandler(WebSocketBoardStrategy webSocketStrategy) {
-            logger.info("🔥 BOARD WEBSOCKET HANDLER CONSTRUCTOR CALLED");
             this.webSocketStrategy = webSocketStrategy;
             this.objectMapper = new ObjectMapper();
-            logger.info("🔥 BOARD WEBSOCKET HANDLER INITIALIZED");
         }
-        
-        private final ObjectMapper objectMapper;
 
         @Override
         public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-            logger.info("🔥 CONNECTION ESTABLISHED - Session: {}", session.getId());
             String userId = extractUserId(session);
             if (userId != null) {
                 webSocketStrategy.addSession(userId, session);
-                logger.info("🔥 WebSocket connection established for user: {} - Session: {} - Total sessions: {}", 
+                logger.info("WebSocket connection established for user: {} - Session: {} - Total sessions: {}", 
                            userId, session.getId(), webSocketStrategy.getSessionCount());
             } else {
-                logger.warn("🔥 WebSocket connection without userId, closing session: {}", session.getId());
+                logger.warn("WebSocket connection without userId, closing session: {}", session.getId());
                 session.close();
             }
         }
@@ -101,46 +76,24 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
         @Override
         protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-            logger.info("🔥🔥🔥 handleTextMessage CALLED - Session: {}", session.getId());
-            
             String userId = extractUserId(session);
             if (userId == null) {
-                logger.warn("🔥 Message from session without userId, closing: {}", session.getId());
+                logger.warn("Message from session without userId, closing: {}", session.getId());
                 session.close();
                 return;
             }
 
             try {
                 String payload = message.getPayload();
-                logger.info("🔥🔥🔥 RAW MESSAGE RECEIVED from user {}: {}", userId, payload);
+                Map<String, Object> messageData = objectMapper.readValue(payload, Map.class);
+                String messageType = (String) messageData.get("type");
                 
-                // Parsear mensaje JSON para hacer broadcast
-                try {
-                    Map<String, Object> messageData = objectMapper.readValue(payload, Map.class);
-                    String messageType = (String) messageData.get("type");
-                    
-                    logger.info("🔥🔥🔥 PARSED MESSAGE - type: {}, user: {}", messageType, userId);
-                    
-                    if ("clear".equals(messageType)) {
-                        logger.info("🔥🔥🔥 BROADCASTING CLEAR MESSAGE from user: {}", userId);
-                        logger.info("🔥🔥🔥 ACTIVE SESSIONS: {}", webSocketStrategy.getSessionCount());
-                        
-                        try {
-                            // Hacer broadcast del mensaje clear a todos los demás clientes
-                            webSocketStrategy.broadcastMessage("clear", null);
-                            logger.info("🔥🔥🔥 CLEAR BROADCAST COMPLETED");
-                        } catch (Exception e) {
-                            logger.error("🔥🔥🔥 BROADCAST ERROR: {}", e.getMessage(), e);
-                        }
-                    } else {
-                        logger.info("🔥🔥🔥 IGNORED MESSAGE TYPE: {}", messageType);
-                    }
-                } catch (Exception parseError) {
-                    logger.error("🔥🔥🔥 PARSE ERROR: {}", parseError.getMessage(), parseError);
+                if ("clear".equals(messageType)) {
+                    webSocketStrategy.broadcastMessage("clear", null);
                 }
-
+                
             } catch (Exception e) {
-                logger.error("🔥🔥🔥 HANDLER ERROR from user {}: {}", userId, e.getMessage(), e);
+                logger.error("Error handling WebSocket message from user {}: {}", userId, e.getMessage());
                 session.close();
             }
         }

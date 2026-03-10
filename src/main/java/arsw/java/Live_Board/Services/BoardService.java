@@ -91,9 +91,6 @@ public class BoardService {
         BoardLogger.logBoardStrokesTotal(strokes.size());
     }
 
-    /**
-     * Limpia todos los trazos del tablero.
-     */
     public void clear() {
         int strokeCount = strokes.size();
         strokes.clear();
@@ -102,21 +99,10 @@ public class BoardService {
         BoardLogger.logBoardCleared(strokeCount);
     }
     
-    /**
-     * Genera un color hexadecimal aleatorio.
-     *
-     * @return Color en formato #RRGGBB
-     */
     private String generateRandomColor() {
         return String.format("#%06x", rnd.nextInt(Config.RGB_MAX));
     }
     
-    
-    /**
-     * Obtiene estadísticas del tablero.
-     *
-     * @return Map con estadísticas (trazos, usuarios activos)
-     */
     public Map<String, Object> getStats() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalStrokes", strokes.size());

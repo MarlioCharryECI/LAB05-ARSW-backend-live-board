@@ -14,10 +14,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Estrategia de comunicación usando WebSockets.
- * Envía mensajes a través de sesiones WebSocket conectadas.
- */
 @Component("websocket")
 public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
 
@@ -26,8 +22,7 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
     @Autowired
     private BoardService boardService;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
@@ -136,30 +131,20 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
             message.put("type", type);
             message.put("data", data);
             String jsonMessage = objectMapper.writeValueAsString(message);
-            logger.info("🔥 BROADCASTING: {} to {} sessions", jsonMessage, sessions.size());
-            
-            int[] sentCount = {0};
-            int[] removedCount = {0};
             
             sessions.values().removeIf(session -> {
                 try {
                     if (session.isOpen()) {
                         session.sendMessage(new TextMessage(jsonMessage));
-                        sentCount[0]++;
                         return false;
                     } else {
-                        logger.debug("Removing closed session: {}", session.getId());
-                        removedCount[0]++;
                         return true;
                     }
                 } catch (Exception e) {
-                    logger.warn("Failed to send message to session {}, removing: {}", session.getId(), e.getMessage());
-                    removedCount[0]++;
+                    logger.warn("Failed to send message to session {}: {}", session.getId(), e.getMessage());
                     return true;
                 }
             });
-            
-            logger.info("🔥 BROADCAST COMPLETED: sent to {} sessions, removed {} sessions", sentCount[0], removedCount[0]);
             
         } catch (Exception e) {
             logger.error("Error creating broadcast message", e);
@@ -169,7 +154,9 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
 
     private void sendMessage(WebSocketSession session, String type, Object data) {
         try {
-            Map<String, Object> message = Map.of("type", type, "data", data);
+            Map<String, Object> message = new HashMap<>();
+            message.put("type", type);
+            message.put("data", data);
             session.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
         } catch (Exception e) {
             logger.error("Failed to send message to session", e);
