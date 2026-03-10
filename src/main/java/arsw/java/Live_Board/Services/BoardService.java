@@ -196,8 +196,7 @@ public class BoardService {
         info.put("activeUsers", userColors.size());
         info.put("availableColors", palette.size());
         info.put("timestamp", System.currentTimeMillis());
-        
-        // Limpiar usuarios inactivos
+
         cleanupInactiveUsers();
         
         return info;

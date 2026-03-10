@@ -34,12 +34,17 @@ public class BoardController {
     @Operation(summary = "Unirse y obtener color único")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Usuario unido exitosamente"),
-        @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos")
+        @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos"),
+        @ApiResponse(responseCode = "409", description = "No hay colores disponibles"),
+        @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     })
     @PostMapping("/join")
     public ResponseEntity<JoinResponse> join(@Valid @RequestBody JoinRequest req) {
         logger.info("Usuario intentando unirse: {}", req.userId);
         JoinResponse response = service.join(req.userId);
+        if (response.color == null || response.color.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
         logger.info("Usuario {} unido con color: {}", req.userId, response.color);
         return ResponseEntity.ok(response);
     }
@@ -98,18 +103,18 @@ public class BoardController {
     @Operation(summary = "Heartbeat para mantener sesión activa")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Sesion actualizada exitosamente"),
+        @ApiResponse(responseCode = "400", description = "UserId inválido"),
         @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
     @PostMapping("/users/{userId}/heartbeat")
     public ResponseEntity<Map<String, Object>> heartbeat(@PathVariable String userId) {
         logger.debug("Heartbeat para usuario: {}", userId);
         Map<String, Object> response = service.updateUserActivity(userId);
-        if (response != null) {
-            return ResponseEntity.ok(response);
-        } else {
+        if (response.isEmpty()) {
             logger.warn("Usuario {} no encontrado para heartbeat", userId);
             return ResponseEntity.notFound().build();
         }
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Obtener información del tablero para sincronización")
