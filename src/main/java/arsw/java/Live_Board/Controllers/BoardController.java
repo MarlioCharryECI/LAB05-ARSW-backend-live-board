@@ -1,6 +1,7 @@
 package arsw.java.Live_Board.Controllers;
 
 import arsw.java.Live_Board.Services.BoardService;
+import arsw.java.Live_Board.factory.BoardCommunicationFactory;
 import arsw.java.Live_Board.model.JoinRequest;
 import arsw.java.Live_Board.model.JoinResponse;
 import arsw.java.Live_Board.model.StrokeDto;
@@ -25,9 +26,11 @@ public class BoardController {
 
     private static final Logger logger = LoggerFactory.getLogger(BoardController.class);
     private final BoardService service;
+    private final BoardCommunicationFactory communicationFactory;
 
-    public BoardController(BoardService service) {
+    public BoardController(BoardService service, BoardCommunicationFactory communicationFactory) {
         this.service = service;
+        this.communicationFactory = communicationFactory;
     }
 
 
@@ -69,7 +72,7 @@ public class BoardController {
     @PostMapping("/draw")
     public ResponseEntity<Void> draw(@Valid @RequestBody StrokeDto stroke) {
         logger.info("Agregando trazo del usuario: {}", stroke.userId);
-        service.addStroke(stroke);
+        communicationFactory.getStrategy().sendStroke(stroke);
         logger.debug("Trazo agregado exitosamente");
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
@@ -81,7 +84,7 @@ public class BoardController {
     @PostMapping("/clear")
     public ResponseEntity<Void> clear() {
         logger.info("Borrando tablero");
-        service.clear();
+        communicationFactory.getStrategy().sendClear();
         logger.info("Tablero borrado exitosamente");
         return ResponseEntity.noContent().build();
     }
@@ -94,7 +97,7 @@ public class BoardController {
     public ResponseEntity<Map<String, Object>> syncBoard(
             @RequestParam(required = false) Long since) {
         logger.debug("Sincronizando cambios desde timestamp: {}", since);
-        Map<String, Object> syncData = service.getChangesSince(since);
+        Map<String, Object> syncData = communicationFactory.getStrategy().getChangesSince(since);
         logger.debug("Retornando {} trazos modificados", 
                     ((List<?>) syncData.get("strokes")).size());
         return ResponseEntity.ok(syncData);
@@ -109,7 +112,7 @@ public class BoardController {
     @PostMapping("/users/{userId}/heartbeat")
     public ResponseEntity<Map<String, Object>> heartbeat(@PathVariable String userId) {
         logger.debug("Heartbeat para usuario: {}", userId);
-        Map<String, Object> response = service.updateUserActivity(userId);
+        Map<String, Object> response = communicationFactory.getStrategy().sendHeartbeat(userId);
         if (response.isEmpty()) {
             logger.warn("Usuario {} no encontrado para heartbeat", userId);
             return ResponseEntity.notFound().build();
@@ -124,7 +127,7 @@ public class BoardController {
     @GetMapping("/board/info")
     public ResponseEntity<Map<String, Object>> getBoardInfo() {
         logger.debug("Obteniendo información del tablero");
-        Map<String, Object> info = service.getBoardInfo();
+        Map<String, Object> info = communicationFactory.getStrategy().getBoardInfo();
         return ResponseEntity.ok(info);
     }
 
