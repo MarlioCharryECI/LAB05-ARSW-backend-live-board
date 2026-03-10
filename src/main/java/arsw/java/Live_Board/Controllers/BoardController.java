@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -78,6 +79,48 @@ public class BoardController {
         service.clear();
         logger.info("Tablero borrado exitosamente");
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Obtener cambios desde un timestamp específico (para polling)")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Cambios obtenidos exitosamente")
+    })
+    @GetMapping("/board/sync")
+    public ResponseEntity<Map<String, Object>> syncBoard(
+            @RequestParam(required = false) Long since) {
+        logger.debug("Sincronizando cambios desde timestamp: {}", since);
+        Map<String, Object> syncData = service.getChangesSince(since);
+        logger.debug("Retornando {} trazos modificados", 
+                    ((List<?>) syncData.get("strokes")).size());
+        return ResponseEntity.ok(syncData);
+    }
+
+    @Operation(summary = "Heartbeat para mantener sesión activa")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Sesion actualizada exitosamente"),
+        @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
+    })
+    @PostMapping("/users/{userId}/heartbeat")
+    public ResponseEntity<Map<String, Object>> heartbeat(@PathVariable String userId) {
+        logger.debug("Heartbeat para usuario: {}", userId);
+        Map<String, Object> response = service.updateUserActivity(userId);
+        if (response != null) {
+            return ResponseEntity.ok(response);
+        } else {
+            logger.warn("Usuario {} no encontrado para heartbeat", userId);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @Operation(summary = "Obtener información del tablero para sincronización")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Información obtenida exitosamente")
+    })
+    @GetMapping("/board/info")
+    public ResponseEntity<Map<String, Object>> getBoardInfo() {
+        logger.debug("Obteniendo información del tablero");
+        Map<String, Object> info = service.getBoardInfo();
+        return ResponseEntity.ok(info);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
