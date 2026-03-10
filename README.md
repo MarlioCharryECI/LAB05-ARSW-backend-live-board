@@ -81,6 +81,18 @@ mvn spring-boot:run
 
 La aplicación estará disponible en `http://localhost:8080` con Swagger UI en `http://localhost:8080/swagger-ui.html`.
 
+## Tests Unitarios
+
+Se implementa cobertura completa con JUnit 5 y Mockito:
+
+- **BoardServiceTest**: 17 tests - Lógica de negocio completa
+- **BoardValidatorTest**: 10 tests - Validaciones de entrada
+- **BoardCommunicationFactoryTest**: 7 tests - Selección de estrategia
+- **RestBoardStrategyTest**: 7 tests - Delegación REST
+- **BoardControllerTest**: 11 tests - Endpoints API
+
+**Coverage actual**: ~85% del código principal probado
+
 ## Notas de Despliegue
 
 El backend está preparado para despliegue en AWS EC2 con configuración CORS habilitada para comunicación con el frontend React en dominios diferentes.
