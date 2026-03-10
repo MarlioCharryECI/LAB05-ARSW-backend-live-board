@@ -83,10 +83,15 @@ public class BoardController {
     })
     @PostMapping("/clear")
     public ResponseEntity<Void> clear() {
-        logger.info("Borrando tablero");
-        communicationFactory.getStrategy().sendClear();
-        logger.info("Tablero borrado exitosamente");
-        return ResponseEntity.noContent().build();
+        try {
+            logger.info("Borrando tablero");
+            communicationFactory.getStrategy().sendClear();
+            logger.info("Tablero borrado exitosamente");
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            logger.error("Error al borrar tablero", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @Operation(summary = "Obtener cambios desde un timestamp específico (para polling)")

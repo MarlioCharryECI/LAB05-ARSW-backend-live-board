@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -51,6 +52,7 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
     @Override
     public void sendClear() {
         try {
+            logger.info("Clearing board, active sessions: {}", sessions.size());
             boardService.clear();
             
             if (sessions.isEmpty()) {
@@ -58,11 +60,18 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
                 return;
             }
             
-            broadcastMessage("clear", null);
+            logger.info("Broadcasting clear message to {} sessions", sessions.size());
+            try {
+                broadcastMessage("clear", null);
+                logger.info("Clear broadcast completed");
+            } catch (Exception broadcastError) {
+                logger.error("Broadcast failed but board was cleared", broadcastError);
+                // No lanzar excepción, el tablero ya fue limpiado
+            }
             
         } catch (Exception e) {
-            logger.error("Error sending clear via WebSocket", e);
-            throw new RuntimeException("Failed to send clear", e);
+            logger.error("Error clearing board", e);
+            throw new RuntimeException("Failed to clear board", e);
         }
     }
 
@@ -109,28 +118,53 @@ public class WebSocketBoardStrategy implements BoardCommunicationStrategy {
 
     public void addSession(String userId, WebSocketSession session) {
         sessions.put(userId, session);
-        logger.info("WebSocket session added for user: {}", userId);
+        logger.info("WebSocket session added for user: {} - Total sessions: {}", userId, sessions.size());
     }
 
     public void removeSession(String userId) {
         sessions.remove(userId);
-        logger.info("WebSocket session removed for user: {}", userId);
+        logger.info("WebSocket session removed for user: {} - Total sessions: {}", userId, sessions.size());
+    }
+    
+    public int getSessionCount() {
+        return sessions.size();
     }
 
-    private void broadcastMessage(String type, Object data) {
-        Map<String, Object> message = Map.of("type", type, "data", data);
-        
-        sessions.values().removeIf(session -> {
-            try {
-                if (session.isOpen()) {
-                    session.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
-                    return false;
+    public void broadcastMessage(String type, Object data) {
+        try {
+            Map<String, Object> message = new HashMap<>();
+            message.put("type", type);
+            message.put("data", data);
+            String jsonMessage = objectMapper.writeValueAsString(message);
+            logger.info("🔥 BROADCASTING: {} to {} sessions", jsonMessage, sessions.size());
+            
+            int[] sentCount = {0};
+            int[] removedCount = {0};
+            
+            sessions.values().removeIf(session -> {
+                try {
+                    if (session.isOpen()) {
+                        session.sendMessage(new TextMessage(jsonMessage));
+                        sentCount[0]++;
+                        return false;
+                    } else {
+                        logger.debug("Removing closed session: {}", session.getId());
+                        removedCount[0]++;
+                        return true;
+                    }
+                } catch (Exception e) {
+                    logger.warn("Failed to send message to session {}, removing: {}", session.getId(), e.getMessage());
+                    removedCount[0]++;
+                    return true;
                 }
-            } catch (Exception e) {
-                logger.warn("Failed to send message to session", e);
-            }
-            return true;
-        });
+            });
+            
+            logger.info("🔥 BROADCAST COMPLETED: sent to {} sessions, removed {} sessions", sentCount[0], removedCount[0]);
+            
+        } catch (Exception e) {
+            logger.error("Error creating broadcast message", e);
+            throw new RuntimeException("Failed to create broadcast message", e);
+        }
     }
 
     private void sendMessage(WebSocketSession session, String type, Object data) {
